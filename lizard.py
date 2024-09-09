@@ -6,6 +6,7 @@ from utils import constrain_angle
 class Lizard:
     BODY_COLOR = (82, 121, 111)
     EYE_COLOR = (255, 255, 255)
+    PATTERN_COLOR = (60, 90, 80, 200)
 
     def __init__(self, position):
         self.position = position
@@ -24,6 +25,7 @@ class Lizard:
         self.speed = 2
         self.heading = 0  # New: current heading of the lizard
         self.turn_speed = 0.05  # New: how fast the lizard can turn (in radians per frame)
+        self.tail_phase = 0  # New: for tail animation
 
     def update(self, width, height):
         # Update spine
@@ -61,14 +63,24 @@ class Lizard:
         # Draw body
         points = []
         for i, joint in enumerate(self.spine):
-            points.append(self.get_body_point(i, math.pi/2))
+            points.append(self.get_body_point(i, math.pi / 2))
         for i in range(len(self.spine) - 1, -1, -1):
-            points.append(self.get_body_point(i, -math.pi/2))
+            points.append(self.get_body_point(i, -math.pi / 2))
+
+        # Draw main body
         pygame.draw.polygon(screen, self.BODY_COLOR, points)
 
+        # Draw pattern
+        pattern_points = [points[0], points[1], points[-2], points[-1]]
+        pygame.draw.polygon(screen, self.PATTERN_COLOR, pattern_points)
+
         # Draw eyes
-        pygame.draw.circle(screen, self.EYE_COLOR, self.get_body_point(0, 3*math.pi/5, -2), 4)
-        pygame.draw.circle(screen, self.EYE_COLOR, self.get_body_point(0, -3*math.pi/5, -2), 4)
+        eye_pos1 = self.get_body_point(0, 3 * math.pi / 5, -2)
+        eye_pos2 = self.get_body_point(0, -3 * math.pi / 5, -2)
+        pygame.draw.circle(screen, self.EYE_COLOR, eye_pos1, 4)
+        pygame.draw.circle(screen, self.EYE_COLOR, eye_pos2, 4)
+        pygame.draw.circle(screen, (0, 0, 0), eye_pos1, 2)  # Pupil
+        pygame.draw.circle(screen, (0, 0, 0), eye_pos2, 2)  # Pupil
 
         # Draw legs
         for leg in self.legs:
