@@ -41,6 +41,11 @@ class Lizard:
         self.tongue_out = False
         self.tongue_timer = 0
 
+        self.fleeing = False
+        self.flee_target = None
+        self.flee_speed = LizardConfig.DEFAULT_FLEE_SPEED
+        self.flee_distance = LizardConfig.DEFAULT_FLEE_DISTANCE
+
     def update(self, width, height):
         self.state_timer += 1
 
@@ -49,6 +54,8 @@ class Lizard:
             if self.state_timer > random.randint(100, 200):
                 self.state = "stopping"
                 self.state_timer = 0
+        elif self.state == "fleeing":
+            self._flee()
         elif self.state == "stopping":
             if self.state_timer > random.randint(50, 100):
                 self.state = "looking"
@@ -81,6 +88,32 @@ class Lizard:
             move = pygame.math.Vector2(math.cos(self.heading), math.sin(self.heading)) * self.speed
             self.position += move
 
+    def _flee(self):
+        if self.flee_target is None:
+            # Calculate a flee target that is a certain distance away from the lizard's current position
+            flee_direction = pygame.math.Vector2(math.cos(self.heading), math.sin(self.heading))
+            self.flee_target = self.position + flee_direction * self.flee_distance
+
+        # Calculate the direction towards the flee target
+        direction = self.flee_target - self.position
+        direction.normalize_ip()
+
+        # Smoothly rotate the lizard's heading towards the flee direction
+        target_angle = math.atan2(direction.y, direction.x)
+        angle_diff = (target_angle - self.heading + math.pi) % (2 * math.pi) - math.pi
+        if abs(angle_diff) > self.turn_speed:
+            self.heading += self.turn_speed * (1 if angle_diff > 0 else -1)
+        else:
+            self.heading = target_angle
+
+        # Move the lizard in the flee direction
+        self.position += direction * self.flee_speed
+
+        # Check if the lizard has reached the flee target
+        if (self.position - self.flee_target).length() < 10:
+            self.fleeing = False
+            self.flee_target = None
+            self.state = "moving"
     def _look_around(self):
         self.heading += math.sin(self.state_timer * 0.1) * 0.02 * self.look_around_angle
 
@@ -168,9 +201,9 @@ class Lizard:
     def _draw_shadow(self, screen: pygame.Surface):
         shadow_points = []
         for i, joint in enumerate(self.spine):
-            shadow_points.append(self.get_body_point(i, math.pi / 2, length_offset=2) + SHADOW_OFFSET)
+            shadow_points.append(self.get_body_point(i, math.pi / 2, length_offset=LizardConfig.DEFAULT_SHADOW_WIDTH) + SHADOW_OFFSET)
         for i in range(len(self.spine) - 1, -1, -1):
-            shadow_points.append(self.get_body_point(i, -math.pi / 2, length_offset=2) + SHADOW_OFFSET)
+            shadow_points.append(self.get_body_point(i, -math.pi / 2, length_offset=LizardConfig.DEFAULT_SHADOW_WIDTH) + SHADOW_OFFSET)
 
         pygame.draw.polygon(screen, SHADOW_COLOR,shadow_points)
 
@@ -211,9 +244,8 @@ class Leg:
                 self.joints[i+1] = self.joints[i] + dir * self.length
 
     def draw(self, screen):
-        # Draw leg shadow (before actual leg)
         shadow_points = [(int(joint.x + SHADOW_OFFSET.x), int(joint.y + SHADOW_OFFSET.y)) for joint in self.joints]
-        pygame.draw.lines(screen, SHADOW_COLOR, False, shadow_points, 6)  # Slightly thicker shadow for visibility
+        pygame.draw.lines(screen, SHADOW_COLOR, False, shadow_points, LizardConfig.DEFAULT_LEG_WIDTH + LizardConfig.DEFAULT_SHADOW_WIDTH)
 
         pygame.draw.lines(screen, self.lizard.BODY_COLOR, False,
-                          [(int(joint.x), int(joint.y)) for joint in self.joints], 4)
+                          [(int(joint.x), int(joint.y)) for joint in self.joints], LizardConfig.DEFAULT_LEG_WIDTH)

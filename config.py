@@ -6,10 +6,15 @@ import pygame
 
 
 class LizardConfig:
-
     DEFAULT_SPEED = 2
+    DEFAULT_FLEE_SPEED = DEFAULT_SPEED * 3
+    DEFAULT_FLEE_DISTANCE = 300
     DEFAULT_TURN_SPEED = 0.05
     DEFAULT_ANGLE_CONSTRAINT = math.pi / 8
+
+    DEFAULT_SHADOW_WIDTH = 2
+    DEFAULT_LEG_WIDTH = 5
+
     def __init__(self, lizard):
         self.lizard = lizard
         self.turn_speed = lizard.turn_speed

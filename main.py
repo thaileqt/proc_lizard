@@ -69,6 +69,11 @@ def main():
         for event in pygame.event.get():
             if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
                 running = False
+            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:  # Left mouse button click
+                mouse_pos = pygame.mouse.get_pos()
+                if lizard.position.distance_to(pygame.math.Vector2(mouse_pos)) < 50:  # Click within 50 pixels of the lizard
+                    lizard.fleeing = True
+                    lizard.state = "fleeing"
 
         screen.fill(fuchsia)  # Transparent background
 
