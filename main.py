@@ -1,12 +1,13 @@
 import ctypes
-
 import pygame
 import sys
 from lizard import Lizard
 import win32api
 import win32con
 import win32gui
-# Initialize Pygame
+from win32gui import SetWindowPos
+
+
 pygame.init()
 
 # Set up the display
@@ -22,10 +23,9 @@ win32gui.SetWindowLong(hwnd, win32con.GWL_EXSTYLE,
 # Set window transparency color
 fuchsia = (255, 0, 128)  # Transparency color
 win32gui.SetLayeredWindowAttributes(hwnd, win32api.RGB(*fuchsia), 0, win32con.LWA_COLORKEY)
-# Set the window to be always on top (Windows-specific)
-if sys.platform == "win32":
-    hwnd = pygame.display.get_wm_info()["window"]
-    ctypes.windll.user32.SetWindowPos(hwnd, -1, 0, 0, 0, 0, 0x0001 | 0x0002)
+
+SetWindowPos(pygame.display.get_wm_info()['window'], win32con.HWND_TOPMOST, 0,0,0,0, win32con.SWP_NOMOVE | win32con.SWP_NOSIZE)
+
 # Create lizard
 lizard = Lizard(pygame.math.Vector2(WIDTH // 2, HEIGHT // 2))
 

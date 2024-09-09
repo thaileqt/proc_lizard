@@ -3,6 +3,7 @@ import random
 import math
 from utils import constrain_angle
 
+
 class Lizard:
     BODY_COLOR = (82, 121, 111)
     EYE_COLOR = (255, 255, 255)
@@ -23,17 +24,48 @@ class Lizard:
         self.legs = [Leg(self, i) for i in range(4)]
         self.target = pygame.math.Vector2(random.randint(0, 800), random.randint(0, 600))
         self.speed = 2
-        self.heading = 0  # New: current heading of the lizard
-        self.turn_speed = 0.05  # New: how fast the lizard can turn (in radians per frame)
-        self.tail_phase = 0  # New: for tail animation
+        self.heading = 0
+        self.turn_speed = 0.05
+        self.tail_phase = 0
+
+        # New behavior variables
+        self.state = "moving"
+        self.state_timer = 0
+        self.look_around_angle = 0
+        self.blink_timer = 0
+        self.tongue_out = False
+        self.tongue_timer = 0
 
     def update(self, width, height):
-        # Update spine
+        self.state_timer += 1
+
+        if self.state == "moving":
+            self._move(width, height)
+            if self.state_timer > random.randint(100, 200):
+                self.state = "stopping"
+                self.state_timer = 0
+        elif self.state == "stopping":
+            if self.state_timer > random.randint(50, 100):
+                self.state = "looking"
+                self.state_timer = 0
+                self.look_around_angle = random.uniform(-math.pi / 4, math.pi / 4)
+        elif self.state == "looking":
+            self._look_around()
+            if self.state_timer > random.randint(50, 100):
+                self.state = "moving"
+                self.state_timer = 0
+                self.target = pygame.math.Vector2(random.randint(0, width), random.randint(0, height))
+
+        self._update_spine()
+        self._update_legs()
+        self._update_blinking()
+        self._update_tongue()
+
+    def _move(self, width, height):
         direction = self.target - self.position
         if direction.length() < 10:
             self.target = pygame.math.Vector2(random.randint(0, width), random.randint(0, height))
         else:
-            # New: Gradually turn towards the target
             target_angle = math.atan2(direction.y, direction.x)
             angle_diff = (target_angle - self.heading + math.pi) % (2 * math.pi) - math.pi
             if abs(angle_diff) > self.turn_speed:
@@ -41,12 +73,15 @@ class Lizard:
             else:
                 self.heading = target_angle
 
-            # Move in the current heading direction
             move = pygame.math.Vector2(math.cos(self.heading), math.sin(self.heading)) * self.speed
             self.position += move
 
+    def _look_around(self):
+        self.heading += math.sin(self.state_timer * 0.1) * 0.02 * self.look_around_angle
+
+    def _update_spine(self):
         self.spine[0] = self.position
-        self.spine_angles[0] = self.heading  # Use the current heading for the first spine segment
+        self.spine_angles[0] = self.heading
 
         for i in range(1, len(self.spine)):
             cur_angle = math.atan2(self.spine[i - 1].y - self.spine[i].y, self.spine[i - 1].x - self.spine[i].x)
@@ -55,9 +90,28 @@ class Lizard:
                                          math.sin(self.spine_angles[i])) * self.segment_length
             self.spine[i] = self.spine[i - 1] - offset
 
-        # Update legs
+        # Tail animation
+        self.tail_phase += 0.1
+        for i in range(7, len(self.spine)):
+            self.spine_angles[i] += math.sin(self.tail_phase + i * 0.5) * 0.05
+
+    def _update_legs(self):
         for leg in self.legs:
             leg.update()
+
+    def _update_blinking(self):
+        self.blink_timer += 1
+        if self.blink_timer > random.randint(100, 200):
+            self.blink_timer = 0
+
+    def _update_tongue(self):
+        if not self.tongue_out and random.random() < 0.005:
+            self.tongue_out = True
+            self.tongue_timer = 0
+        if self.tongue_out:
+            self.tongue_timer += 1
+            if self.tongue_timer > 20:
+                self.tongue_out = False
 
     def draw(self, screen):
         # Draw body
@@ -67,7 +121,6 @@ class Lizard:
         for i in range(len(self.spine) - 1, -1, -1):
             points.append(self.get_body_point(i, -math.pi / 2))
 
-        # Draw main body
         pygame.draw.polygon(screen, self.BODY_COLOR, points)
 
         # Draw pattern
@@ -77,10 +130,21 @@ class Lizard:
         # Draw eyes
         eye_pos1 = self.get_body_point(0, 3 * math.pi / 5, -2)
         eye_pos2 = self.get_body_point(0, -3 * math.pi / 5, -2)
-        pygame.draw.circle(screen, self.EYE_COLOR, eye_pos1, 4)
-        pygame.draw.circle(screen, self.EYE_COLOR, eye_pos2, 4)
-        pygame.draw.circle(screen, (0, 0, 0), eye_pos1, 2)  # Pupil
-        pygame.draw.circle(screen, (0, 0, 0), eye_pos2, 2)  # Pupil
+
+        if self.blink_timer < 5:
+            pygame.draw.line(screen, (0, 0, 0), (eye_pos1[0] - 3, eye_pos1[1]), (eye_pos1[0] + 3, eye_pos1[1]), 2)
+            pygame.draw.line(screen, (0, 0, 0), (eye_pos2[0] - 3, eye_pos2[1]), (eye_pos2[0] + 3, eye_pos2[1]), 2)
+        else:
+            pygame.draw.circle(screen, self.EYE_COLOR, eye_pos1, 4)
+            pygame.draw.circle(screen, self.EYE_COLOR, eye_pos2, 4)
+            pygame.draw.circle(screen, (0, 0, 0), eye_pos1, 2)
+            pygame.draw.circle(screen, (0, 0, 0), eye_pos2, 2)
+
+        # Draw tongue
+        if self.tongue_out:
+            tongue_start = self.get_body_point(0, 0, -4)
+            tongue_end = tongue_start + pygame.math.Vector2(math.cos(self.heading), math.sin(self.heading)) * 15
+            pygame.draw.line(screen, (255, 0, 0), tongue_start, tongue_end, 2)
 
         # Draw legs
         for leg in self.legs:
