@@ -9,15 +9,21 @@ from win32gui import SetWindowPos
 import pystray
 import threading
 from PIL import Image
+from config import LizardConfig, ConfigWindow
 
 running = True
 
+
 class SystemTrayThread(threading.Thread):
-    def __init__(self):
+    def __init__(self, lizard):
         super().__init__()
         self.running = True
         icon_image = Image.open("icon.png")
-        self.icon = pystray.Icon("lizark", icon_image, menu=pystray.Menu(pystray.MenuItem("Quit", self.on_quit)))
+        self.lizard_config = LizardConfig(lizard)
+        self.icon = pystray.Icon("lizark", icon_image, menu=pystray.Menu(
+            pystray.MenuItem("Config", self.on_config),
+            pystray.MenuItem("Quit", self.on_quit)
+        ))
 
     def run(self):
         self.icon.run()
@@ -27,8 +33,9 @@ class SystemTrayThread(threading.Thread):
         self.icon.stop()
         running = False
 
-tray_thread = SystemTrayThread()
-tray_thread.start()
+    def on_config(self):
+        self.lizard_config.show_config_dialog()
+
 
 def main():
     global running
@@ -38,7 +45,7 @@ def main():
     # WIDTH, HEIGHT = 1600, 900
     WIDTH, HEIGHT = info.current_w, info.current_h
 
-    screen = pygame.display.set_mode((WIDTH, HEIGHT), pygame.NOFRAME)
+    screen = pygame.display.set_mode((WIDTH, HEIGHT), pygame.NOFRAME | pygame.SRCALPHA)
     pygame.display.set_caption("lizark")
     pygame.display.set_icon(pygame.image.load("icon.png"))
 
@@ -53,7 +60,8 @@ def main():
 
     # Create lizard
     lizard = Lizard(pygame.math.Vector2(WIDTH // 2, HEIGHT // 2))
-
+    tray_thread = SystemTrayThread(lizard)
+    tray_thread.start()
     # Main game loop
     clock = pygame.time.Clock()
 

@@ -2,9 +2,10 @@ import pygame
 import random
 import math
 from utils import constrain_angle
+from config import LizardConfig
 
 
-SHADOW_COLOR = (0, 0, 0, 80)  # TODO: Transparency not working
+SHADOW_COLOR = (0, 0, 0, 0)  # TODO: Transparency not working
 SHADOW_OFFSET = pygame.math.Vector2(5, 5)
 
 class Lizard:
@@ -18,7 +19,10 @@ class Lizard:
         self.spine_angles = [0]
         self.body_width = [16, 18, 12, 18, 20, 22, 20, 15, 8, 4, 3, 3, 2, 2]
         self.segment_length = 20
-        self.angle_constraint = math.pi / 8
+
+        self.angle_constraint = LizardConfig.DEFAULT_ANGLE_CONSTRAINT
+        self.speed = LizardConfig.DEFAULT_SPEED
+        self.turn_speed = LizardConfig.DEFAULT_TURN_SPEED
 
         for _ in range(13):
             self.spine.append(self.spine[-1] + pygame.math.Vector2(0, self.segment_length))
@@ -26,11 +30,10 @@ class Lizard:
 
         self.legs = [Leg(self, i) for i in range(4)]
         self.target = pygame.math.Vector2(random.randint(0, 800), random.randint(0, 600))
-        self.speed = 2
-        self.heading = 0
-        self.turn_speed = 0.05
-        self.tail_phase = 0
 
+
+        self.heading = 0
+        self.tail_phase = 0
         self.state = "moving"
         self.state_timer = 0
         self.look_around_angle = 0
@@ -162,14 +165,14 @@ class Lizard:
         point = self.spine[i] + offset
         return (int(point.x), int(point.y))
 
-    def _draw_shadow(self, screen):
+    def _draw_shadow(self, screen: pygame.Surface):
         shadow_points = []
         for i, joint in enumerate(self.spine):
             shadow_points.append(self.get_body_point(i, math.pi / 2, length_offset=2) + SHADOW_OFFSET)
         for i in range(len(self.spine) - 1, -1, -1):
             shadow_points.append(self.get_body_point(i, -math.pi / 2, length_offset=2) + SHADOW_OFFSET)
 
-        pygame.draw.polygon(screen, SHADOW_COLOR, shadow_points)
+        pygame.draw.polygon(screen, SHADOW_COLOR,shadow_points)
 
 
 class Leg:
@@ -212,4 +215,5 @@ class Leg:
         shadow_points = [(int(joint.x + SHADOW_OFFSET.x), int(joint.y + SHADOW_OFFSET.y)) for joint in self.joints]
         pygame.draw.lines(screen, SHADOW_COLOR, False, shadow_points, 6)  # Slightly thicker shadow for visibility
 
-        pygame.draw.lines(screen, self.lizard.BODY_COLOR, False, [(int(joint.x), int(joint.y)) for joint in self.joints], 4)
+        pygame.draw.lines(screen, self.lizard.BODY_COLOR, False,
+                          [(int(joint.x), int(joint.y)) for joint in self.joints], 4)
