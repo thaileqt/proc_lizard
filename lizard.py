@@ -4,10 +4,13 @@ import math
 from utils import constrain_angle
 
 
+SHADOW_COLOR = (0, 0, 0, 80)  # TODO: Transparency not working
+SHADOW_OFFSET = pygame.math.Vector2(5, 5)
+
 class Lizard:
     BODY_COLOR = (82, 121, 111)
     EYE_COLOR = (255, 255, 255)
-    PATTERN_COLOR = (60, 90, 80, 200)
+    HEAD_COLOR = (60, 90, 80, 200)
 
     def __init__(self, position):
         self.position = position
@@ -28,7 +31,6 @@ class Lizard:
         self.turn_speed = 0.05
         self.tail_phase = 0
 
-        # New behavior variables
         self.state = "moving"
         self.state_timer = 0
         self.look_around_angle = 0
@@ -114,6 +116,12 @@ class Lizard:
                 self.tongue_out = False
 
     def draw(self, screen):
+        self._draw_shadow(screen)
+
+        # Draw legs
+        for leg in self.legs:
+            leg.draw(screen)
+
         # Draw body
         points = []
         for i, joint in enumerate(self.spine):
@@ -125,7 +133,7 @@ class Lizard:
 
         # Draw pattern
         pattern_points = [points[0], points[1], points[-2], points[-1]]
-        pygame.draw.polygon(screen, self.PATTERN_COLOR, pattern_points)
+        pygame.draw.polygon(screen, self.HEAD_COLOR, pattern_points)
 
         # Draw eyes
         eye_pos1 = self.get_body_point(0, 3 * math.pi / 5, -2)
@@ -146,15 +154,23 @@ class Lizard:
             tongue_end = tongue_start + pygame.math.Vector2(math.cos(self.heading), math.sin(self.heading)) * 15
             pygame.draw.line(screen, (255, 0, 0), tongue_start, tongue_end, 2)
 
-        # Draw legs
-        for leg in self.legs:
-            leg.draw(screen)
+
 
     def get_body_point(self, i, angle_offset, length_offset=0):
         angle = self.spine_angles[i] + angle_offset
         offset = pygame.math.Vector2(math.cos(angle), math.sin(angle)) * (self.body_width[i] + length_offset)
         point = self.spine[i] + offset
         return (int(point.x), int(point.y))
+
+    def _draw_shadow(self, screen):
+        shadow_points = []
+        for i, joint in enumerate(self.spine):
+            shadow_points.append(self.get_body_point(i, math.pi / 2, length_offset=2) + SHADOW_OFFSET)
+        for i in range(len(self.spine) - 1, -1, -1):
+            shadow_points.append(self.get_body_point(i, -math.pi / 2, length_offset=2) + SHADOW_OFFSET)
+
+        pygame.draw.polygon(screen, SHADOW_COLOR, shadow_points)
+
 
 class Leg:
     def __init__(self, lizard, index):
@@ -192,4 +208,8 @@ class Leg:
                 self.joints[i+1] = self.joints[i] + dir * self.length
 
     def draw(self, screen):
+        # Draw leg shadow (before actual leg)
+        shadow_points = [(int(joint.x + SHADOW_OFFSET.x), int(joint.y + SHADOW_OFFSET.y)) for joint in self.joints]
+        pygame.draw.lines(screen, SHADOW_COLOR, False, shadow_points, 6)  # Slightly thicker shadow for visibility
+
         pygame.draw.lines(screen, self.lizard.BODY_COLOR, False, [(int(joint.x), int(joint.y)) for joint in self.joints], 4)
