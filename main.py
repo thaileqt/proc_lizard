@@ -1,29 +1,55 @@
-import ctypes
 import pygame
 import sys
-from lizard import Lizard
-import win32api
-import win32con
-import win32gui
+import win32api, win32con, win32gui, ctypes
 from win32gui import SetWindowPos
 import pystray
 import threading
 from PIL import Image
+import psutil
+from lizard import Lizard
 from config import LizardConfig, ConfigWindow
+from utils import *
+
 
 running = True
+lizard_mode = "auto"  # Default mode
 
+show_ram_fps = False
+fps = 0
+ram_usage = 0
+
+
+
+def get_ram_usage():
+    process = psutil.Process()
+    return process.memory_info().rss / 1024 / 1024  # Convert to MB
 
 class SystemTrayThread(threading.Thread):
     def __init__(self, lizard):
         super().__init__()
+
         self.running = True
         icon_image = Image.open("icon.png")
         self.lizard_config = LizardConfig(lizard)
-        self.icon = pystray.Icon("lizark", icon_image, menu=pystray.Menu(
+
+        # Load icons
+        self.icon_main = Image.open("icon.png")
+
+
+        self.icon = pystray.Icon("lizark", self.icon_main, menu=self._create_menu())
+
+    def _create_menu(self):
+        return pystray.Menu(
+            pystray.MenuItem("Mode", pystray.Menu(
+                pystray.MenuItem("Follow", self.on_follow, checked=lambda item: lizard_mode == "follow", radio=True,
+                                 default=False),
+                pystray.MenuItem("Auto", self.on_auto, checked=lambda item: lizard_mode == "auto", radio=True,
+                                 default=True)
+            ), default=True),
+            pystray.MenuItem("Show Performance", self.on_performance, checked=lambda item: show_ram_fps == True, default=False),
             pystray.MenuItem("Config", self.on_config),
-            pystray.MenuItem("Quit", self.on_quit)
-        ))
+            pystray.MenuItem("Quit", self.on_quit),
+        )
 
     def run(self):
         self.icon.run()
@@ -36,9 +62,24 @@ class SystemTrayThread(threading.Thread):
     def on_config(self):
         self.lizard_config.show_config_dialog()
 
+    def on_auto(self):
+        global lizard_mode
+        lizard_mode = "auto"
+        self.icon.update_menu()
+
+    def on_follow(self):
+        global lizard_mode
+        lizard_mode = "follow"
+        self.icon.update_menu()
+
+    def on_performance(self):
+        global show_ram_fps
+        show_ram_fps = not show_ram_fps
+
 
 def main():
-    global running
+    global running, lizard_mode, fps, ram_usage
+
     pygame.init()
     # Set up the display
     info = pygame.display.Info()
@@ -64,6 +105,7 @@ def main():
     tray_thread.start()
     # Main game loop
     clock = pygame.time.Clock()
+    font = pygame.font.Font(None, 36)
 
     while running:
         for event in pygame.event.get():
@@ -77,8 +119,23 @@ def main():
 
         screen.fill(fuchsia)  # Transparent background
 
-        lizard.update(WIDTH, HEIGHT)
+        if lizard_mode == "follow":
+            lizard.follow(pygame.math.Vector2(get_global_mouse_pos()))
+        else:
+            lizard.update(WIDTH, HEIGHT)
         lizard.draw(screen)
+
+        if show_ram_fps:
+            # Calculate and display FPS
+            fps = clock.get_fps()
+            fps_text = font.render(f"FPS: {fps:.0f}", True, (255, 255, 255))
+            screen.blit(fps_text, (10, 10))
+
+            # Calculate and display RAM usage
+            ram_usage = get_ram_usage()
+            ram_text = font.render(f"RAM: {ram_usage:.2f} MB", True, (255, 255, 255))
+            screen.blit(ram_text, (10, 50))
+
 
         pygame.display.flip()
         clock.tick(60)

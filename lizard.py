@@ -43,7 +43,7 @@ class Lizard:
 
         self.fleeing = False
         self.flee_target = None
-        self.flee_speed = LizardConfig.DEFAULT_FLEE_SPEED
+        self.flee_speed = self.speed * LizardConfig.FLEE_SPEED_MULTIPLIER
         self.flee_distance = LizardConfig.DEFAULT_FLEE_DISTANCE
 
     def update(self, width, height):
@@ -167,7 +167,7 @@ class Lizard:
 
         pygame.draw.polygon(screen, self.BODY_COLOR, points)
 
-        # Draw pattern
+        # Draw head pattern
         pattern_points = [points[0], points[1], points[-2], points[-1]]
         pygame.draw.polygon(screen, self.HEAD_COLOR, pattern_points)
 
@@ -190,7 +190,28 @@ class Lizard:
             tongue_end = tongue_start + pygame.math.Vector2(math.cos(self.heading), math.sin(self.heading)) * 15
             pygame.draw.line(screen, (255, 0, 0), tongue_start, tongue_end, 2)
 
+    def follow(self, target_position):
+        direction = target_position - self.position
+        distance = direction.length()
 
+        if distance > 10:  # Only move if the mouse is more than 10 pixels away
+            target_angle = math.atan2(direction.y, direction.x)
+            angle_diff = (target_angle - self.heading + math.pi) % (2 * math.pi) - math.pi
+
+            if abs(angle_diff) > self.turn_speed:
+                self.heading += self.turn_speed * (1 if angle_diff > 0 else -1)
+            else:
+                self.heading = target_angle
+
+            # Adjust speed based on distance to mouse
+            speed = min(self.speed, distance / 2)  # Slow down as it gets closer to the mouse
+            move = pygame.math.Vector2(math.cos(self.heading), math.sin(self.heading)) * speed
+            self.position += move
+
+        self._update_spine()
+        self._update_legs()
+        self._update_blinking()
+        self._update_tongue()
 
     def get_body_point(self, i, angle_offset, length_offset=0):
         angle = self.spine_angles[i] + angle_offset
