@@ -31,6 +31,7 @@ class SystemTrayThread(threading.Thread):
         self.running = True
         icon_image = Image.open("icon.png")
         self.lizard_config = LizardConfig(lizard)
+        self.lizard = lizard
 
         # Load icons
         self.icon_main = Image.open("icon.png")
@@ -47,6 +48,7 @@ class SystemTrayThread(threading.Thread):
                                  default=True)
             ), default=True),
             pystray.MenuItem("Show Performance", self.on_performance, checked=lambda item: show_ram_fps == True, default=False),
+            pystray.MenuItem("Show Bones", self.on_show_bones, checked=lambda item: self.lizard.transparent == True, default=False),
             pystray.MenuItem("Config", self.on_config),
             pystray.MenuItem("Quit", self.on_quit),
         )
@@ -75,6 +77,9 @@ class SystemTrayThread(threading.Thread):
     def on_performance(self):
         global show_ram_fps
         show_ram_fps = not show_ram_fps
+
+    def on_show_bones(self):
+        self.lizard.transparent = not self.lizard.transparent
 
 
 def main():
@@ -109,8 +114,9 @@ def main():
 
     while running:
         for event in pygame.event.get():
-            if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
-                running = False
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                lizard.transparent = not lizard.transparent
+
             elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:  # Left mouse button click
                 mouse_pos = pygame.mouse.get_pos()
                 if lizard.position.distance_to(pygame.math.Vector2(mouse_pos)) < 50:  # Click within 50 pixels of the lizard

@@ -4,6 +4,8 @@ import math
 from utils import constrain_angle
 from config import LizardConfig
 
+TRANSPARENT_POINT_WIDTH = 2
+TRANSPARENT_POINT_RADIUS = 5
 
 SHADOW_COLOR = (0, 0, 0, 0)  # TODO: Transparency not working
 SHADOW_OFFSET = pygame.math.Vector2(5, 5)
@@ -13,7 +15,11 @@ class Lizard:
     EYE_COLOR = (255, 255, 255)
     HEAD_COLOR = (60, 90, 80, 200)
 
+    TRANSPARENT = (0, 0, 0, 0)
+    BORDER_COLOR = (255, 255, 255)
+
     def __init__(self, position):
+        self.transparent = False
         self.position = position
         self.spine = [position.copy()]
         self.spine_angles = [0]
@@ -156,7 +162,7 @@ class Lizard:
 
         # Draw legs
         for leg in self.legs:
-            leg.draw(screen)
+            leg.draw(screen, self.transparent)
 
         # Draw body
         points = []
@@ -164,31 +170,41 @@ class Lizard:
             points.append(self.get_body_point(i, math.pi / 2))
         for i in range(len(self.spine) - 1, -1, -1):
             points.append(self.get_body_point(i, -math.pi / 2))
+        pygame.draw.polygon(screen, self.BODY_COLOR if not self.transparent else self.BORDER_COLOR, points,
+                            2 if self.transparent else 0)
 
-        pygame.draw.polygon(screen, self.BODY_COLOR, points)
+        if self.transparent:
+            # Draw spine
+            pygame.draw.lines(screen, self.BORDER_COLOR, False, [(int(joint.x), int(joint.y)) for joint in self.spine],
+                              1)
+            # Draw spine joints
+            for joint in self.spine:
+                pygame.draw.circle(screen, self.BORDER_COLOR, (int(joint.x), int(joint.y)), TRANSPARENT_POINT_RADIUS,
+                                   TRANSPARENT_POINT_WIDTH)
 
-        # Draw head pattern
-        pattern_points = [points[0], points[1], points[-2], points[-1]]
-        pygame.draw.polygon(screen, self.HEAD_COLOR, pattern_points)
 
-        # Draw eyes
-        eye_pos1 = self.get_body_point(0, 3 * math.pi / 5, -2)
-        eye_pos2 = self.get_body_point(0, -3 * math.pi / 5, -2)
-
-        if self.blink_timer < 5:
-            pygame.draw.line(screen, (0, 0, 0), (eye_pos1[0] - 3, eye_pos1[1]), (eye_pos1[0] + 3, eye_pos1[1]), 2)
-            pygame.draw.line(screen, (0, 0, 0), (eye_pos2[0] - 3, eye_pos2[1]), (eye_pos2[0] + 3, eye_pos2[1]), 2)
         else:
-            pygame.draw.circle(screen, self.EYE_COLOR, eye_pos1, 4)
-            pygame.draw.circle(screen, self.EYE_COLOR, eye_pos2, 4)
-            pygame.draw.circle(screen, (0, 0, 0), eye_pos1, 2)
-            pygame.draw.circle(screen, (0, 0, 0), eye_pos2, 2)
+            # Draw head
+            pattern_points = [points[0], points[1], points[-2], points[-1]]
+            pygame.draw.polygon(screen, self.HEAD_COLOR, pattern_points)
+            # Draw eyes
+            eye_pos1 = self.get_body_point(0, 3 * math.pi / 5, -2)
+            eye_pos2 = self.get_body_point(0, -3 * math.pi / 5, -2)
 
-        # Draw tongue
-        if self.tongue_out:
-            tongue_start = self.get_body_point(0, 0, -4)
-            tongue_end = tongue_start + pygame.math.Vector2(math.cos(self.heading), math.sin(self.heading)) * 15
-            pygame.draw.line(screen, (255, 0, 0), tongue_start, tongue_end, 2)
+            if self.blink_timer < 5:
+                pygame.draw.line(screen, (0, 0, 0), (eye_pos1[0] - 3, eye_pos1[1]), (eye_pos1[0] + 3, eye_pos1[1]), 2)
+                pygame.draw.line(screen, (0, 0, 0), (eye_pos2[0] - 3, eye_pos2[1]), (eye_pos2[0] + 3, eye_pos2[1]), 2)
+            else:
+                pygame.draw.circle(screen, self.EYE_COLOR, eye_pos1, 4)
+                pygame.draw.circle(screen, self.EYE_COLOR, eye_pos2, 4)
+                pygame.draw.circle(screen, (0, 0, 0), eye_pos1, 2)
+                pygame.draw.circle(screen, (0, 0, 0), eye_pos2, 2)
+
+            # Draw tongue
+            if self.tongue_out:
+                tongue_start = self.get_body_point(0, 0, -4)
+                tongue_end = tongue_start + pygame.math.Vector2(math.cos(self.heading), math.sin(self.heading)) * 15
+                pygame.draw.line(screen, (255, 0, 0), tongue_start, tongue_end, 2)
 
     def follow(self, target_position):
         direction = target_position - self.position
@@ -220,6 +236,8 @@ class Lizard:
         return (int(point.x), int(point.y))
 
     def _draw_shadow(self, screen: pygame.Surface):
+        if self.transparent:
+            return
         shadow_points = []
         for i, joint in enumerate(self.spine):
             shadow_points.append(self.get_body_point(i, math.pi / 2, length_offset=LizardConfig.DEFAULT_SHADOW_WIDTH) + SHADOW_OFFSET)
@@ -264,9 +282,21 @@ class Leg:
                 dir = (self.joints[i+1] - self.joints[i]).normalize()
                 self.joints[i+1] = self.joints[i] + dir * self.length
 
-    def draw(self, screen):
-        shadow_points = [(int(joint.x + SHADOW_OFFSET.x), int(joint.y + SHADOW_OFFSET.y)) for joint in self.joints]
-        pygame.draw.lines(screen, SHADOW_COLOR, False, shadow_points, LizardConfig.DEFAULT_LEG_WIDTH + LizardConfig.DEFAULT_SHADOW_WIDTH)
+    def draw(self, screen, transparent=False):
+        if transparent:
+            # Draw leg segments
+            pygame.draw.lines(screen, Lizard.BORDER_COLOR, False,
+                              [(int(joint.x), int(joint.y)) for joint in self.joints],
+                              2)
 
-        pygame.draw.lines(screen, self.lizard.BODY_COLOR, False,
-                          [(int(joint.x), int(joint.y)) for joint in self.joints], LizardConfig.DEFAULT_LEG_WIDTH)
+            # Draw joints as small circles
+            for joint in self.joints:
+                pygame.draw.circle(screen, Lizard.BORDER_COLOR, (int(joint.x), int(joint.y)),
+                                   TRANSPARENT_POINT_RADIUS-1, TRANSPARENT_POINT_WIDTH)
+
+        else:
+            shadow_points = [(int(joint.x + SHADOW_OFFSET.x), int(joint.y + SHADOW_OFFSET.y)) for joint in self.joints]
+            pygame.draw.lines(screen, SHADOW_COLOR, False, shadow_points, LizardConfig.DEFAULT_LEG_WIDTH + LizardConfig.DEFAULT_SHADOW_WIDTH)
+
+            pygame.draw.lines(screen, self.lizard.BODY_COLOR, False,
+                              [(int(joint.x), int(joint.y)) for joint in self.joints], LizardConfig.DEFAULT_LEG_WIDTH)
